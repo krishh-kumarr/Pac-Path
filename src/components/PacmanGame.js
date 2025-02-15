@@ -228,7 +228,7 @@ const PacmanGame = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
-            <div className="mb-4 text-white text-2xl">Blocks Travelled: {score}</div>
+            <div className="mb-4 text-white text-2xl">Pac-Man game using A* Search 👾 </div>
 
             {placingFood && (
                 <div className="mb-4 text-yellow-400 text-xl">
