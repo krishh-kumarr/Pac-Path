@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
 
 // Pacman Game Component (Provided in the search result)
 const GRID_SIZE = 15;
@@ -228,7 +229,7 @@ const PacmanGame = () => {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-4">
-            <div className="mb-4 text-white text-2xl">Pac-Man game using A* Search 👾 </div>
+            <div className="mb-4 text-white text-2xl">Pac-an game using A* Search 👾 </div>
 
             {placingFood && (
                 <div className="mb-4 text-yellow-400 text-xl">
@@ -369,8 +370,29 @@ const EightPuzzleGame = () => {
         if (isSolved(puzzle)) {
             setGameWon(true);
             setShowAnalytics(true); // Show analytics when the game is won
+            // Trigger confetti
+            shootConfetti();
         }
     }, [puzzle]);
+
+    const shootConfetti = () => {
+        const duration = 300; // Duration of the confetti rain in milliseconds
+        const end = Date.now() + duration;
+    
+        const interval = setInterval(() => {
+            // Check if the duration has ended
+            if (Date.now() > end) {
+                clearInterval(interval);
+                return;
+            }
+    
+            confetti({
+                particleCount: 800,
+                spread: 100,
+                origin: { x: Math.random(), y: 0 } // Random x position for horizontal spread
+            });
+        }, 60); // Adjust the interval time for more or less frequent bursts
+    };
 
     const shufflePuzzle = () => {
         let shuffledPuzzle;
