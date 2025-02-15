@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
+// Pacman Game Component (Provided in the search result)
 const GRID_SIZE = 15;
 const CELL_SIZE = 50;
 
@@ -115,11 +116,8 @@ const PacmanGame = () => {
                 path.unshift(start);
                 return path;
             }
-
             openSet.splice(openSet.indexOf(current), 1);
-            closedSet.add(`${current.x},${current.y}`);
-
-            for (const neighbor of getNeighbors(current)) {
+            closedSet.add(`${current.x},${current.y}`); for (const neighbor of getNeighbors(current)) {
                 if (closedSet.has(`${neighbor.x},${neighbor.y}`)) continue;
 
                 const tentativeG = gScore.get(`${current.x},${current.y}`) + 1;
@@ -236,18 +234,14 @@ const PacmanGame = () => {
                 <div className="mb-4 text-yellow-400 text-xl">
                     Click on the grid to place food for Pacman!
                 </div>
-            )}
-
-            {!gameStarted && !placingFood && (
+            )}... {!gameStarted && !placingFood && (
                 <button
                     onClick={() => setGameStarted(true)}
                     className="mb-4 px-4 py-2 bg-yellow-400 text-black rounded hover:bg-yellow-500"
                 >
                     Start Game
                 </button>
-            )}
-
-            <div
+            )}... <div
                 className="relative bg-blue-900 rounded-lg p-2"
                 style={{
                     width: GRID_SIZE * CELL_SIZE + 20,
@@ -362,4 +356,213 @@ const PacmanGame = () => {
     );
 };
 
-export default PacmanGame;
+// 8 Puzzle Game Component
+const EightPuzzleGame = () => {
+    const [puzzle, setPuzzle] = useState([1, 2, 3, 4, 5, 6, 7, 8, 0]); // 0 represents the blank tile
+    const [userMoves, setUserMoves] = useState([]);
+    const [gameWon, setGameWon] = useState(false);
+    const [solution, setSolution] = useState(null);
+    const [showAnalytics, setShowAnalytics] = useState(false); // State to control analytics visibility
+
+    useEffect(() => {
+        // Check if the puzzle is solved on every move
+        if (isSolved(puzzle)) {
+            setGameWon(true);
+            setShowAnalytics(true); // Show analytics when the game is won
+        }
+    }, [puzzle]);
+
+    const shufflePuzzle = () => {
+        let shuffledPuzzle;
+        do {
+            shuffledPuzzle = generateEasyPuzzle();
+        } while (!isSolvable(shuffledPuzzle));
+
+        setPuzzle(shuffledPuzzle);
+        setUserMoves([]);
+        setGameWon(false);
+        setSolution(null);
+        setShowAnalytics(false); // Hide analytics when the game is shuffled
+    };
+
+    const generateEasyPuzzle = () => {
+        // Start with a solved puzzle
+        let puzzle = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        let blankIndex = 8; // Index of the blank tile
+
+        // Make 5-6 random moves
+        for (let i = 0; i < 5; i++) {
+            const possibleMoves = [];
+            const row = Math.floor(blankIndex / 3);
+            const col = blankIndex % 3;
+
+            // Check possible moves (up, down, left, right)
+            if (row > 0) possibleMoves.push(blankIndex - 3);   // Up
+            if (row < 2) possibleMoves.push(blankIndex + 3);   // Down
+            if (col > 0) possibleMoves.push(blankIndex - 1);   // Left
+            if (col < 2) possibleMoves.push(blankIndex + 1);   // Right
+
+            // Randomly select a move
+            const moveIndex = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+
+            // Swap the blank tile
+            [puzzle[blankIndex], puzzle[moveIndex]] = [puzzle[moveIndex], puzzle[blankIndex]];
+            blankIndex = moveIndex;
+        }
+
+        return puzzle;
+    };
+
+    const isSolvable = (grid) => {
+        let inversions = 0;
+        for (let i = 0; i < grid.length; i++) {
+            for (let j = i + 1; j < grid.length; j++) {
+                if (grid[i] && grid[j] && grid[i] > grid[j]) {
+                    inversions++;
+                }
+            }
+        }
+        return inversions % 2 === 0;
+    };
+
+    const isSolved = (grid) => {
+        const solvedState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        return grid.every((value, index) => value === solvedState[index]);
+    };
+
+    const getBlankPosition = (grid) => {
+        return grid.indexOf(0);
+    };
+
+    const moveTile = (index) => {
+        if (gameWon) return;
+
+        const blankIndex = getBlankPosition(puzzle);
+        const row = Math.floor(index / 3);
+        const col = index % 3;
+        const blankRow = Math.floor(blankIndex / 3);
+        const blankCol = blankIndex % 3;
+
+        if ((Math.abs(row - blankRow) === 1 && col === blankCol) || (Math.abs(col - blankCol) === 1 && row === blankRow)) {
+            const newPuzzle = [...puzzle];
+            [newPuzzle[blankIndex], newPuzzle[index]] = [newPuzzle[index], newPuzzle[blankIndex]];
+            setPuzzle(newPuzzle);
+            setUserMoves([...userMoves, index]);
+        }
+    };
+
+    // Analytics
+    const moveFrequency = () => {
+        const freq = {};
+        userMoves.forEach(move => {
+            freq[move] = (freq[move] || 0) + 1;
+        });
+        return freq;
+    };
+
+    const renderMoveFrequency = () => {
+        const freq = moveFrequency();
+        return (
+            <ul>
+                {Object.entries(freq).map(([move, count]) => (
+                    <li key={move}>Tile {move + 1}: {count} moves</li>
+                ))}
+            </ul>
+        );
+    };
+
+    const Analytics = () => {
+        return (
+            <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white">
+                <h3 className="text-xl font-semibold mb-2">Game Analytics</h3>
+                <p>Total Moves: {userMoves.length}</p>
+                <h4 className="text-lg font-semibold mt-2">Move Frequency:</h4>
+                {renderMoveFrequency()}
+            </div>
+        );
+    };
+
+    const GreedyBestFirstExplanation = () => {
+        return (
+            <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white">
+                <h3 className="text-xl font-semibold mb-2">Greedy Best-First Search</h3>
+                <p>
+                    Imagine you're trying to solve this puzzle with a super-simple strategy: always pick the move that seems to get you closest to the solution <i>right now</i>. That's basically Greedy Best-First Search!
+                </p>
+                <p>
+                    <strong className="text-yellow-400">How it Works:</strong>
+                </p>
+                <ol className="list-decimal list-inside pl-5">
+                    <li>It looks at all possible moves.</li>
+                    <li>It guesses which move gets it closest to the solution (using a "heuristic"). For example, it might count how many tiles are in the correct spot.</li>
+                    <li>It picks the move that *seems* best and repeats!</li>
+                </ol>
+                <p>
+                    <strong className="text-red-400">The Catch:</strong>
+                    Just like grabbing for the closest cookie, it doesn't always lead to the *best* path! It can get stuck or take a longer route.
+                </p>
+
+                {/* Simple Diagram (text-based, can be enhanced with actual image/SVG) */}
+                <div className="mt-2">
+                    <p>
+                        <strong className="text-green-400">Visual Example:</strong>
+                    </p>
+                    <pre className="bg-gray-700 p-2 rounded">
+                        <code>
+                            Start: [1 2 3, 4 5 6, 7 8 0] {'\n'}
+                            Goal:  [1 2 3, 4 5 6, 7 8 0] {'\n'}
+                            Heuristic: Tiles in correct place
+                        </code>
+                    </pre>
+                </div>
+
+                <p>
+                    In our puzzle, a simple heuristic could be: "How many tiles are in their final correct position?".  Greedy Best-First Search would always pick the move that increases this number the most.
+                </p>
+            </div>
+        );
+    };
+
+
+    return (
+        <div className="flex flex-col items-center p-4">
+            <div className="text-white text-2xl mb-4">8 Puzzle Game</div>
+            <div className="grid grid-cols-3 gap-2">
+                {puzzle.map((tile, index) => (
+                    <button
+                        key={index}
+                        className={`w-20 h-20 border border-gray-700 text-white text-4xl font-bold flex items-center justify-center rounded ${tile === 0 ? 'bg-gray-900' : 'bg-gray-800 hover:bg-gray-700'}`}
+                        onClick={() => moveTile(index)}
+                        disabled={gameWon}
+                    >
+                        {tile !== 0 ? tile : ''}
+                    </button>
+                ))}
+            </div>
+            {gameWon && (
+                <div className="text-green-500 mt-4 text-xl">
+                    Congratulations! You solved the puzzle!
+                </div>
+            )}
+            <button
+                onClick={shufflePuzzle}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+                Shuffle Puzzle
+            </button>
+            {showAnalytics && <Analytics />}
+            {showAnalytics && <GreedyBestFirstExplanation />}
+        </div>
+    );
+};
+
+const App = () => {
+    return (
+        <div className="flex flex-row items-center justify-center min-h-screen bg-gray-900 p-4">
+            <PacmanGame />
+            <EightPuzzleGame />
+        </div>
+    );
+};
+
+export default App;
