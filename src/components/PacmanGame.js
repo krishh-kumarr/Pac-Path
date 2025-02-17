@@ -5,7 +5,6 @@ import { Stage, Layer, Rect, Text, Line, Arrow } from 'react-konva';
 const GRID_SIZE = 15;
 const CELL_SIZE = 50;
 
-
 const PacmanGame = () => {
     const [grid, setGrid] = useState([]);
     const [pacman, setPacman] = useState({ x: 1, y: 1 });
@@ -352,17 +351,17 @@ const PacmanGame = () => {
         </div>
     );
 };
-
-// 8 Puzzle Game Component
 const EightPuzzleGame = () => {
     const [puzzle, setPuzzle] = useState([1, 2, 3, 4, 5, 6, 7, 8, 0]);
     const [userMoves, setUserMoves] = useState([]);
     const [gameWon, setGameWon] = useState(false);
     const [solution, setSolution] = useState(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
+    const [isSolving, setIsSolving] = useState(false);
     const [puzzleHistory, setPuzzleHistory] = useState([
         [1, 2, 3, 4, 5, 6, 7, 8, 0]
     ]);
+    const [moveDelay, setMoveDelay] = useState(300);
 
     useEffect(() => {
         if (isSolved(puzzle)) {
@@ -401,6 +400,7 @@ const EightPuzzleGame = () => {
         setGameWon(false);
         setSolution(null);
         setShowAnalytics(false);
+        setIsSolving(false);
         setPuzzleHistory([shuffledPuzzle]);
     };
 
@@ -449,7 +449,7 @@ const EightPuzzleGame = () => {
     };
 
     const moveTile = (tileIndex) => {
-        if (gameWon) return;
+        if (gameWon || isSolving) return;
 
         const blankIndex = getBlankPosition(puzzle);
         const row = Math.floor(blankIndex / 3);
@@ -547,6 +547,140 @@ const EightPuzzleGame = () => {
         }
     };
 
+    const misplacedTilesHeuristic = (puzzleState) => {
+        const solvedState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        let misplacedTiles = 0;
+        for (let i = 0; i < 9; i++) {
+            if (puzzleState[i] !== 0 && puzzleState[i] !== solvedState[i]) {
+                misplacedTiles++;
+            }
+        }
+        return misplacedTiles;
+    };
+
+    const solvePuzzleWithAI = () => {
+        if (isSolving) return;
+
+        setIsSolving(true);
+        setGameWon(false);
+        setSolution(null);
+        setUserMoves([]);
+        setPuzzleHistory([puzzle]);
+
+        const solvedState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        const initialState = [...puzzle];
+
+        const getNeighbors = (puzzleState) => {
+            const blankIndex = getBlankPosition(puzzleState);
+            const row = Math.floor(blankIndex / 3);
+            const col = blankIndex % 3;
+            const neighbors = [];
+
+            const possibleMoves = [];
+            if (row > 0) possibleMoves.push(blankIndex - 3);
+            if (row < 2) possibleMoves.push(blankIndex + 3);
+            if (col > 0) possibleMoves.push(blankIndex - 1);
+            if (col < 2) possibleMoves.push(blankIndex + 1);
+
+            possibleMoves.forEach(move => {
+                const newPuzzle = [...puzzleState];
+                newPuzzle[blankIndex] = newPuzzle[move];
+                newPuzzle[move] = 0;
+                neighbors.push(newPuzzle);
+            });
+
+            return neighbors;
+        };
+
+        const aStarSearch = () => {
+            const closedSet = new Set();
+            const openSet = [{ state: initialState, gScore: 0, fScore: misplacedTilesHeuristic(initialState), path: [] }];
+
+            while (openSet.length > 0) {
+                openSet.sort((a, b) => a.fScore - b.fScore);
+                const current = openSet.shift();
+
+                if (isSolved(current.state)) {
+                    return current.path;
+                }
+
+                const stateKey = current.state.toString();
+                if (closedSet.has(stateKey)) {
+                    continue;
+                }
+                closedSet.add(stateKey);
+
+                const neighbors = getNeighbors(current.state);
+                neighbors.forEach(neighbor => {
+                    const gScore = current.gScore + 1;
+                    const fScore = gScore + misplacedTilesHeuristic(neighbor);
+                    const existing = openSet.find(item => item.state.toString() === neighbor.toString());
+
+                    if (!existing || gScore < existing.gScore) {
+                        if (existing) {
+                            openSet.splice(openSet.indexOf(existing), 1);
+                        }
+                        openSet.push({ state: neighbor, gScore, fScore, path: [...current.path, current.state] });
+                    }
+                });
+            }
+            return null;
+        };
+
+        const solutionPath = aStarSearch();
+
+        if (solutionPath) {
+            applySolution(solutionPath);
+            setSolution(solutionPath);
+        } else {
+            setSolution("No solution found.");
+            setIsSolving(false);
+        }
+    };
+
+    const applySolution = (solutionPath) => {
+        if (!solutionPath || solutionPath.length === 0) {
+            setIsSolving(false);
+            return;
+        }
+
+        let stepIndex = 0;
+        const applyNextStep = () => {
+            if (stepIndex < solutionPath.length) {
+                const nextPuzzleState = solutionPath[stepIndex];
+                setPuzzle(nextPuzzleState);
+                setUserMoves(prevMoves => {
+                    if (stepIndex > 0) {
+                        const prevPuzzleState = solutionPath[stepIndex - 1];
+                        const blankIndex = prevPuzzleState.indexOf(0);
+                        const newBlankIndex = nextPuzzleState.indexOf(0);
+                        return [...prevMoves, { from: newBlankIndex, to: blankIndex }];
+                    }
+                    return prevMoves;
+                });
+                setPuzzleHistory(prevHistory => [...prevHistory, nextPuzzleState]);
+                stepIndex++;
+
+                setTimeout(() => {
+                    applyNextStep();
+                }, moveDelay);
+            } else {
+                // Check if heuristic is 0 at the end
+                const finalHeuristic = misplacedTilesHeuristic(puzzle);
+                if (finalHeuristic === 0) {
+                    setGameWon(true);
+                    setShowAnalytics(true);
+                    shootConfetti();
+                } else {
+                    console.warn("Heuristic is not 0 after applying the solution. Something might be wrong with the search algorithm.");
+                }
+                setIsSolving(false);
+            }
+        };
+
+        applyNextStep();
+    };
+
     const handleAnalyticsClose = () => {
         setShowAnalytics(false);
     };
@@ -640,10 +774,11 @@ const EightPuzzleGame = () => {
                     Shuffle
                 </button>
                 <button
-                    onClick={solvePuzzle}
+                    onClick={solvePuzzleWithAI}
                     className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700"
+                    disabled={isSolving}
                 >
-                    Solve
+                    {isSolving ? "Solving..." : "Solve with AI"}
                 </button>
             </div>
             {gameWon && (
@@ -739,7 +874,6 @@ const AnalyticsPopup = ({ onClose, moves, solution, puzzleHistory }) => {
             <div className="bg-white p-8 rounded-lg shadow-lg w-2/3">
                 <h2 className="text-2xl font-bold mb-4">Analytics</h2>
                 <p className="mb-4">Total Moves: {moves ? moves.length : 'N/A'}</p>
-
                 <div>
                     <h3 className="text-lg font-semibold mb-2">Your Game Play</h3>
                     <div className="flex flex-col items-center">
